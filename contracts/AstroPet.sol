@@ -1,130 +1,140 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBase.sol";
-import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 
-contract AstroPet is ERC721URIStorage, Ownable, VRFConsumerBase, ChainlinkClient {
-    uint256 public tokenCounter;
-    uint256 public constant MAX_LEVEL = 5;
-    uint256 public resourcePrice;
-
-    bytes32 internal keyHash;
-    uint256 internal fee;
-    address public oracle;
-    bytes32 public jobId;
-    uint256 public oracleFee;
-
-    mapping(bytes32 => uint256) public requestIdToTokenId;
-
-    struct AstroPetData {
-        string name;
+contract AstroPet is ERC721, Ownable {
+    struct AstroPetAttributes {
+        uint256 size;
+        uint256 color;
+        uint256 power;
         uint256 level;
-        uint256 spaceMissionSuccess;
+        uint256 experience;
+        bool evolved;
     }
 
-    mapping(uint256 => AstroPetData) public astroPets;
-
-    event AstroPetMinted(uint256 tokenId, address owner, string name);
-    event AstroPetLeveledUp(uint256 tokenId, uint256 newLevel);
-    event SpaceMissionCompleted(uint256 tokenId, bool success);
-    event SpaceBattle(uint256 winnerTokenId, uint256 loserTokenId);
-    event ResourcePriceUpdated(uint256 price);
-
-    constructor(
-        address _vrfCoordinator,
-        address _linkToken,
-        bytes32 _keyHash,
-        uint256 _vrfFee,
-        address _oracle,
-        bytes32 _jobId,
-        uint256 _oracleFee
-    )
-        ERC721("AstroPet", "ASTRO")
-        VRFConsumerBase(_vrfCoordinator, _linkToken)
-    {
-        tokenCounter = 0;
-        keyHash = _keyHash;
-        fee = _vrfFee;
-        oracle = _oracle;
-        jobId = _jobId;
-        oracleFee = _oracleFee;
-        _setPublicChainlinkToken();
+    struct RareItem {
+        string name;
+        uint256 rarity; // Rarity score from 1-100
     }
 
-    // Function to mint AstroPet NFT
-    function mintAstroPet(string memory _name, string memory _tokenURI) public returns (uint256) {
-        uint256 newTokenId = tokenCounter;
-        _safeMint(msg.sender, newTokenId);
-        _setTokenURI(newTokenId, _tokenURI);
+    // Mapping to store AstroPet attributes
+    mapping(uint256 => AstroPetAttributes) public astroPets;
+    mapping(uint256 => uint256) public missionStartBlock;
+    mapping(uint256 => uint256) public playerInput;  // Store player input for each pet's mission
 
-        astroPets[newTokenId] = AstroPetData(_name, 1, 0); // Initial level is 1, zero missions completed
-        emit AstroPetMinted(newTokenId, msg.sender, _name);
-        tokenCounter += 1;
-        return newTokenId;
+    // Mapping to store rare items found by AstroPets
+    mapping(uint256 => RareItem) public rareItemsFound;
+
+    event MissionOutcome(uint256 petId, string outcome, string rareItem);
+
+    constructor() ERC721("AstroPet", "APET") {}
+
+    // Function to mint new AstroPets
+    function mintAstroPet(uint256 petId) external onlyOwner {
+        _mint(msg.sender, petId);
+        astroPets[petId] = AstroPetAttributes({
+            size: 1,
+            color: uint256(keccak256(abi.encodePacked(block.timestamp))) % 256,
+            power: 10,
+            level: 1,
+            experience: 0,
+            evolved: false
+        });
     }
 
-    // Request randomness for space mission
-    function sendOnSpaceMission(uint256 _tokenId) public returns (bytes32 requestId) {
-        require(ownerOf(_tokenId) == msg.sender, "Not your AstroPet!");
-        require(LINK.balanceOf(address(this)) >= fee, "Not enough LINK");
-
-        requestId = requestRandomness(keyHash, fee);
-        requestIdToTokenId[requestId] = _tokenId;
+    // Function to initiate a space mission with player input
+    // `missionPath` represents different mission paths the player can choose from
+    function startMission(uint256 petId, uint256 missionPath) external {
+        require(ownerOf(petId) == msg.sender, "You don't own this AstroPet.");
+        require(missionPath >= 1 && missionPath <= 3, "Invalid mission path.");
+        missionStartBlock[petId] = block.number;
+        playerInput[petId] = missionPath;
     }
 
-    // Callback function for VRF random number
-    function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
-        uint256 tokenId = requestIdToTokenId[requestId];
-        bool missionSuccess = randomness % 2 == 0; // 50% chance of success
+    // Function to finalize the mission and update the AstroPet's stats
+    function finalizeMission(uint256 petId) external {
+        require(block.number > missionStartBlock[petId] + 5, "Wait for a few blocks.");
 
-        if (missionSuccess) {
-            astroPets[tokenId].spaceMissionSuccess += 1;
+        // Generate randomness using player input and block hash of future block
+        uint256 randomness = uint256(keccak256(abi.encodePacked(
+            playerInput[petId],                 // Include player's input in randomness
+            blockhash(missionStartBlock[petId] + 5),  // Block hash of a future block
+            block.timestamp,                    // Extra layer of randomness
+            msg.sender                          // Player's address for additional entropy
+        )));
 
-            // Level up every 3 successful missions, up to MAX_LEVEL
-            if (astroPets[tokenId].spaceMissionSuccess % 3 == 0 && astroPets[tokenId].level < MAX_LEVEL) {
-                astroPets[tokenId].level += 1;
-                emit AstroPetLeveledUp(tokenId, astroPets[tokenId].level);
+        // Determine the outcome of the mission based on the randomness
+        string memory outcome;
+        string memory foundItem = "";
+
+        if (randomness % 2 == 0) {
+            // Success: AstroPet gains experience and has a chance to evolve
+            astroPets[petId].experience += 10;
+            astroPets[petId].level += 1;
+
+            if (astroPets[petId].experience >= 50 && !astroPets[petId].evolved) {
+                astroPets[petId].evolved = true;
+                astroPets[petId].power += 20; // Pet evolves and becomes stronger
+                outcome = "AstroPet evolved and became stronger!";
+            } else {
+                outcome = "AstroPet successfully completed the mission!";
             }
-        }
 
-        emit SpaceMissionCompleted(tokenId, missionSuccess);
-    }
-
-    // Function for player interactions (AstroPet battles)
-    function battleAstroPets(uint256 _tokenId1, uint256 _tokenId2) public {
-        require(ownerOf(_tokenId1) == msg.sender || ownerOf(_tokenId2) == msg.sender, "Not your AstroPet!");
-
-        AstroPetData storage pet1 = astroPets[_tokenId1];
-        AstroPetData storage pet2 = astroPets[_tokenId2];
-
-        // Simple battle logic based on levels and randomness
-        uint256 rand = uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender))) % 100;
-        uint256 pet1Score = pet1.level * 10 + rand;
-        uint256 pet2Score = pet2.level * 10 + (100 - rand);
-
-        if (pet1Score > pet2Score) {
-            emit SpaceBattle(_tokenId1, _tokenId2); // Pet1 wins
+            // Check for rare item discovery based on mission path
+            if (randomness % 100 < 10) {
+                RareItem memory rareItem = discoverRareItem(randomness);
+                rareItemsFound[petId] = rareItem;
+                foundItem = rareItem.name;
+                outcome = string(abi.encodePacked(outcome, " Found rare item: ", rareItem.name));
+            }
         } else {
-            emit SpaceBattle(_tokenId2, _tokenId1); // Pet2 wins
+            // Failure: AstroPet loses some power
+            astroPets[petId].power -= 2;
+            outcome = "AstroPet failed the mission.";
         }
+
+        emit MissionOutcome(petId, outcome, foundItem);
     }
 
-    // Request external data (resource price) from Chainlink oracle
-    function requestResourcePrice() public {
-        Chainlink.Request memory req = _buildChainlinkRequest(
-            jobId,
-            address(this),
-            this.fulfillResourcePrice.selector
-        );
-        _sendChainlinkRequestTo(oracle, req, oracleFee);
+    // Function to discover a rare item during a mission
+    function discoverRareItem(uint256 randomness) internal pure returns (RareItem memory) {
+        uint256 rarity = (randomness % 100) + 1;  // Random rarity between 1-100
+        string memory name;
+
+        if (rarity <= 10) {
+            name = "Cosmic Crystal";
+        } else if (rarity <= 50) {
+            name = "Interstellar Gem";
+        } else {
+            name = "Galactic Stone";
+        }
+
+        return RareItem({
+            name: name,
+            rarity: rarity
+        });
     }
 
-    // Callback for oracle response (update resource price)
-    function fulfillResourcePrice(bytes32 _requestId, uint256 _price) public recordChainlinkFulfillment(_requestId) {
-        resourcePrice = _price;
-        emit ResourcePriceUpdated(_price);
+    // Function to engage in a space battle with another player's AstroPet
+    function battle(uint256 petId, uint256 opponentId) external {
+        require(ownerOf(petId) == msg.sender, "You don't own this AstroPet.");
+        require(ownerOf(opponentId) != msg.sender, "Cannot battle your own pet.");
+
+        AstroPetAttributes storage pet = astroPets[petId];
+        AstroPetAttributes storage opponent = astroPets[opponentId];
+
+        uint256 petPower = pet.power + pet.level;
+        uint256 opponentPower = opponent.power + opponent.level;
+
+        if (petPower > opponentPower) {
+            pet.experience += 20;
+            pet.level += 1;
+            emit MissionOutcome(petId, "AstroPet won the space battle!", "");
+        } else {
+            pet.power -= 1;
+            emit MissionOutcome(petId, "AstroPet lost the space battle.", "");
+        }
     }
 }
