@@ -3,6 +3,18 @@
 ## Introduction
 AstroPet is a unique NFT game where players can mint, train, and battle their AstroPets. Each AstroPet has distinct attributes and can evolve based on player interactions.
 
+## Project Overview
+AstroPet Space Adventures is a decentralized, interactive blockchain-based virtual pet game where players adopt "AstroPets" and send them on space missions to explore the universe. Each AstroPet is a unique NFT with evolving traits and powers based on player interactions and mission outcomes.
+AstroPet Space Adventures allows players to mint unique AstroPets, engage them in missions, and interact with other players in a fun, vibrant space-themed environment. Players can discover rare items, evolve their pets, and battle other AstroPets.
+
+### Deployed Smart Contract
+The AstroPet smart contract has been deployed and verified on the Scroll network. You can view the verified contract at the following address: [20xe9dE092AAfEEF452EA20f84816D96598cD5023c](link_to_deployed_contract).
+
+### Alchemy RPC Configuration
+The project utilizes the Alchemy RPC for seamless interactions with the Scroll network. The configuration can be found in the `hardhat.config.js` file:
+
+
+
 ## Features
 - **Minting AstroPets**: Create unique AstroPets with diverse attributes.
 - **Missions**: AstroPets can embark on space missions to gain experience.
@@ -29,7 +41,7 @@ npm install
     npx hardhat run scripts/deploy.js --network scroll
 
     **deploy script**: 
-    AstroPet deployed to: 0xe9dE092AAfEEF452EA20f84816D96598cD5023c2
+    AstroPet deployed to: 20xe9dE092AAfEEF452EA20f84816D96598cD5023c
     
 - To run tests:
     npx hardhat test
