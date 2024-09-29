@@ -10,7 +10,7 @@ AstroPet Space Adventures allows players to mint unique AstroPets, engage them i
 ### Deployed Smart Contract
 The AstroPet smart contract has been deployed and verified on the Scroll network. You can view the verified contract at the following address: [20xe9dE092AAfEEF452EA20f84816D96598cD5023c](link_to_deployed_contract).
 
-**Verified contract**
+### Verified contract ###
 Successfully verified contract AstroPet on the block explorer.
 https://sepolia.scrollscan.com/address/0xe9dE092AAfEEF452EA20f84816D96598cD5023c2#code
 
