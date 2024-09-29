@@ -10,6 +10,13 @@ AstroPet Space Adventures allows players to mint unique AstroPets, engage them i
 ### Deployed Smart Contract
 The AstroPet smart contract has been deployed and verified on the Scroll network. You can view the verified contract at the following address: [20xe9dE092AAfEEF452EA20f84816D96598cD5023c](link_to_deployed_contract).
 
+**Verified contract**
+Successfully verified contract AstroPet on the block explorer.
+https://sepolia.scrollscan.com/address/0xe9dE092AAfEEF452EA20f84816D96598cD5023c2#code
+
+The contract 0xe9dE092AAfEEF452EA20f84816D96598cD5023c2 has already been verified on Sourcify.
+https://repo.sourcify.dev/contracts/full_match/534351/0xe9dE092AAfEEF452EA20f84816D96598cD5023c2/
+
 ### Alchemy RPC Configuration
 The project utilizes the Alchemy RPC for seamless interactions with the Scroll network. The configuration can be found in the `hardhat.config.js` file:
 
@@ -41,7 +48,7 @@ npm install
     npx hardhat run scripts/deploy.js --network scroll
 
     **deploy script**: 
-    AstroPet deployed to: 20xe9dE092AAfEEF452EA20f84816D96598cD5023c
+    AstroPet deployed to: 20xe9dE092AAfEEF452EA20f84816D96598cD5023c2
     
 - To run tests:
     npx hardhat test
